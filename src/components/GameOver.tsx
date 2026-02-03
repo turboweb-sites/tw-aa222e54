@@ -1,4 +1,4 @@
-import { Trophy, RotateCcw } from 'lucide-react';
+import { Trophy, RefreshCw } from 'lucide-react';
 
 interface GameOverProps {
   score: number;
@@ -7,30 +7,35 @@ interface GameOverProps {
 }
 
 export default function GameOver({ score, highScore, onRestart }: GameOverProps) {
-  const isNewHighScore = score === highScore && score > 0;
+  const isNewRecord = score === highScore && score > 0;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 max-w-md w-full text-center">
-        <h2 className="text-4xl font-bold text-white mb-4">Игра окончена!</h2>
-        
-        {isNewHighScore && (
-          <div className="mb-6 text-yellow-400">
-            <Trophy className="h-16 w-16 mx-auto mb-2" />
-            <p className="text-2xl font-semibold">Новый рекорд!</p>
-          </div>
-        )}
+    <div className="flex flex-col items-center justify-center h-[500px] text-center">
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-5xl font-bold text-red-500 mb-2">GAME OVER</h2>
+          <p className="text-gray-400 text-lg">Змейка врезалась!</p>
+        </div>
 
-        <div className="space-y-2 mb-8">
-          <p className="text-3xl font-bold text-white">Счёт: {score}</p>
-          <p className="text-lg text-white/70">Рекорд: {highScore}</p>
+        <div className="space-y-4">
+          <div className="text-3xl">
+            <span className="text-gray-400">Счёт: </span>
+            <span className="font-bold text-white">{score}</span>
+          </div>
+
+          {isNewRecord && (
+            <div className="flex items-center justify-center gap-2 text-yellow-500 animate-bounce">
+              <Trophy className="w-8 h-8" />
+              <span className="text-2xl font-bold">НОВЫЙ РЕКОРД!</span>
+            </div>
+          )}
         </div>
 
         <button
           onClick={onRestart}
-          className="px-8 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-lg flex items-center gap-2 mx-auto transition-all hover:scale-105"
+          className="px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105 flex items-center gap-3 mx-auto"
         >
-          <RotateCcw className="h-5 w-5" />
+          <RefreshCw className="w-6 h-6" />
           Играть снова
         </button>
       </div>
