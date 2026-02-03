@@ -1,163 +1,189 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Position, Direction, GameState } from '../types/game';
 
-const BOARD_SIZE = 20;
-const INITIAL_SPEED = 150;
-const SPEED_INCREMENT = 5;
+const GRID_SIZE = 20;
+const INITIAL_SNAKE: Position[] = [
+  { x: 10, y: 10 },
+  { x: 9, y: 10 },
+  { x: 8, y: 10 }
+];
 
-export default function useSnakeGame() {
-  const [gameState, setGameState] = useState<GameState>({
-    snake: [{ x: 10, y: 10 }],
-    food: { x: 15, y: 15 },
-    direction: 'RIGHT',
-    score: 0,
-    highScore: parseInt(localStorage.getItem('snakeHighScore') || '0'),
-    gameOver: false,
-    isPaused: false
+const SPEED_MAP = {
+  easy: 200,
+  medium: 150,
+  hard: 100
+};
+
+export default function useSnakeGame(difficulty: 'easy' | 'medium' | 'hard') {
+  const [snake, setSnake] = useState<Position[]>(INITIAL_SNAKE);
+  const [food, setFood] = useState<Position>({ x: 15, y: 15 });
+  const [direction, setDirection] = useState<Direction>('right');
+  const [gameState, setGameState] = useState<GameState>('idle');
+  const [score, setScore] = useState(0);
+  const [highScore, setHighScore] = useState(() => {
+    const saved = localStorage.getItem('snakeHighScore');
+    return saved ? parseInt(saved, 10) : 0;
   });
 
-  const gameLoopRef = useRef<number | null>(null);
-  const directionRef = useRef<Direction>(gameState.direction);
+  const gameLoopRef = useRef<NodeJS.Timeout>();
+  const directionRef = useRef<Direction>(direction);
 
-  const generateFood = useCallback((snake: Position[]): Position => {
+  // Generate random food position
+  const generateFood = useCallback((): Position => {
     let newFood: Position;
     do {
       newFood = {
-        x: Math.floor(Math.random() * BOARD_SIZE),
-        y: Math.floor(Math.random() * BOARD_SIZE)
+        x: Math.floor(Math.random() * GRID_SIZE),
+        y: Math.floor(Math.random() * GRID_SIZE)
       };
     } while (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y));
     return newFood;
-  }, []);
+  }, [snake]);
 
-  const checkCollision = useCallback((head: Position, snake: Position[]): boolean => {
-    // Wall collision
-    if (head.x < 0 || head.x >= BOARD_SIZE || head.y < 0 || head.y >= BOARD_SIZE) {
-      return true;
-    }
-
-    // Self collision
-    for (let i = 1; i < snake.length; i++) {
-      if (head.x === snake[i].x && head.y === snake[i].y) {
-        return true;
-      }
-    }
-
-    return false;
-  }, []);
-
+  // Move snake
   const moveSnake = useCallback(() => {
-    setGameState(prevState => {
-      if (prevState.gameOver || prevState.isPaused) return prevState;
-
-      const newSnake = [...prevState.snake];
+    setSnake(currentSnake => {
+      const newSnake = [...currentSnake];
       const head = { ...newSnake[0] };
 
+      // Move head based on direction
       switch (directionRef.current) {
-        case 'UP':
+        case 'up':
           head.y -= 1;
           break;
-        case 'DOWN':
+        case 'down':
           head.y += 1;
           break;
-        case 'LEFT':
+        case 'left':
           head.x -= 1;
           break;
-        case 'RIGHT':
+        case 'right':
           head.x += 1;
           break;
       }
 
-      if (checkCollision(head, newSnake)) {
-        const newHighScore = Math.max(prevState.score, prevState.highScore);
-        localStorage.setItem('snakeHighScore', newHighScore.toString());
-        return { ...prevState, gameOver: true, highScore: newHighScore };
+      // Check wall collision
+      if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
+        setGameState('gameover');
+        return currentSnake;
+      }
+
+      // Check self collision
+      if (newSnake.some(segment => segment.x === head.x && segment.y === head.y)) {
+        setGameState('gameover');
+        return currentSnake;
       }
 
       newSnake.unshift(head);
 
-      let newScore = prevState.score;
-      let newFood = prevState.food;
-
-      if (head.x === prevState.food.x && head.y === prevState.food.y) {
-        newScore += 10;
-        newFood = generateFood(newSnake);
+      // Check food collision
+      if (head.x === food.x && head.y === food.y) {
+        setScore(prev => prev + 10);
+        setFood(generateFood());
       } else {
         newSnake.pop();
       }
 
-      return {
-        ...prevState,
-        snake: newSnake,
-        food: newFood,
-        score: newScore,
-        direction: directionRef.current
-      };
+      return newSnake;
     });
-  }, [checkCollision, generateFood]);
+  }, [food, generateFood]);
 
-  const changeDirection = useCallback((newDirection: string) => {
-    const opposites: Record<string, string> = {
-      'UP': 'DOWN',
-      'DOWN': 'UP',
-      'LEFT': 'RIGHT',
-      'RIGHT': 'LEFT'
-    };
-
-    if (opposites[newDirection] !== directionRef.current) {
-      directionRef.current = newDirection as Direction;
-    }
-  }, []);
-
-  const startGame = useCallback(() => {
-    const initialSnake = [{ x: 10, y: 10 }];
-    directionRef.current = 'RIGHT';
-    setGameState({
-      snake: initialSnake,
-      food: generateFood(initialSnake),
-      direction: 'RIGHT',
-      score: 0,
-      highScore: parseInt(localStorage.getItem('snakeHighScore') || '0'),
-      gameOver: false,
-      isPaused: false
-    });
-  }, [generateFood]);
-
-  const pauseGame = useCallback(() => {
-    setGameState(prev => ({ ...prev, isPaused: true }));
-  }, []);
-
-  const resumeGame = useCallback(() => {
-    setGameState(prev => ({ ...prev, isPaused: false }));
-  }, []);
-
+  // Game loop
   useEffect(() => {
-    const speed = INITIAL_SPEED - Math.floor(gameState.score / 50) * SPEED_INCREMENT;
-    
-    if (gameLoopRef.current) {
-      clearInterval(gameLoopRef.current);
+    if (gameState === 'playing') {
+      gameLoopRef.current = setInterval(moveSnake, SPEED_MAP[difficulty]);
+    } else {
+      if (gameLoopRef.current) {
+        clearInterval(gameLoopRef.current);
+      }
     }
-
-    gameLoopRef.current = window.setInterval(moveSnake, Math.max(speed, 50));
 
     return () => {
       if (gameLoopRef.current) {
         clearInterval(gameLoopRef.current);
       }
     };
-  }, [moveSnake, gameState.score]);
+  }, [gameState, moveSnake, difficulty]);
+
+  // Handle keyboard input
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (gameState !== 'playing') return;
+
+      const keyMap: { [key: string]: Direction } = {
+        ArrowUp: 'up',
+        ArrowDown: 'down',
+        ArrowLeft: 'left',
+        ArrowRight: 'right',
+        w: 'up',
+        s: 'down',
+        a: 'left',
+        d: 'right'
+      };
+
+      const newDirection = keyMap[e.key];
+      if (newDirection) {
+        changeDirection(newDirection);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [gameState]);
+
+  // Update high score
+  useEffect(() => {
+    if (score > highScore) {
+      setHighScore(score);
+      localStorage.setItem('snakeHighScore', score.toString());
+    }
+  }, [score, highScore]);
+
+  // Change direction
+  const changeDirection = (newDirection: Direction) => {
+    const opposites: { [key in Direction]: Direction } = {
+      up: 'down',
+      down: 'up',
+      left: 'right',
+      right: 'left'
+    };
+
+    // Prevent going in opposite direction
+    if (opposites[directionRef.current] !== newDirection) {
+      directionRef.current = newDirection;
+      setDirection(newDirection);
+    }
+  };
+
+  // Game controls
+  const startGame = () => {
+    setSnake(INITIAL_SNAKE);
+    setFood({ x: 15, y: 15 });
+    setDirection('right');
+    directionRef.current = 'right';
+    setScore(0);
+    setGameState('playing');
+  };
+
+  const pauseGame = () => {
+    setGameState('paused');
+  };
+
+  const resumeGame = () => {
+    setGameState('playing');
+  };
 
   return {
-    snake: gameState.snake,
-    food: gameState.food,
-    score: gameState.score,
-    highScore: gameState.highScore,
-    gameOver: gameState.gameOver,
-    direction: gameState.direction,
-    isPaused: gameState.isPaused,
+    snake,
+    food,
+    direction,
+    gameState,
+    score,
+    highScore,
     startGame,
     pauseGame,
     resumeGame,
-    changeDirection
+    changeDirection,
+    gridSize: GRID_SIZE
   };
 }

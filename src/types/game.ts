@@ -3,14 +3,6 @@ export interface Position {
   y: number;
 }
 
-export type Direction = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
+export type Direction = 'up' | 'down' | 'left' | 'right';
 
-export interface GameState {
-  snake: Position[];
-  food: Position;
-  direction: Direction;
-  score: number;
-  highScore: number;
-  gameOver: boolean;
-  isPaused: boolean;
-}
+export type GameState = 'idle' | 'playing' | 'paused' | 'gameover';
