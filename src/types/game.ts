@@ -9,8 +9,8 @@ export interface GameState {
   snake: Position[];
   food: Position;
   direction: Direction;
+  gameOver: boolean;
   score: number;
   highScore: number;
-  gameOver: boolean;
   isPaused: boolean;
 }
